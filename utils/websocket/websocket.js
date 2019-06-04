@@ -3,11 +3,11 @@
  */
 var ws = require("nodejs-websocket");
 
-var responseBody = require('../utils/js/responseBody');
+var responseBody = require('../js/responseBody');
 
-var frinedsService = require('../service/frinedsService');
-var userService = require('../service/userService');
-var messagesService = require('../service/messagesService');
+var frinedsService = require('../../service/frinedsService');
+var userService = require('../../service/userService');
+var messagesService = require('../../service/messagesService');
 
 //监控的端口号
 var port = 3377;
@@ -37,20 +37,75 @@ var server = ws.createServer(function (conn) {
     //向客户端推送消息
     conn.on("text", function (messages) {
         console.log("客户端发送来的消息---" + messages);
-        const { pullUserId, message, timestamp } = JSON.parse(messages);
-        messagesService.insertMessage(userid, pullUserId, message, timestamp).then(res => {
-            //type = 1 好友消息
-            let sendMessage = {
-                type: 1,
-                pullUserId:pullUserId,
-                pushUserId:userid,
-                message:message,
-                timestamp:timestamp,
+        const { type,data } = JSON.parse(messages);
+        switch (type) {
+            //用户之间的聊天消息
+            case 0: {
+                const { pullUserId, message, timestamp } = data;
+                messagesService.insertMessage(userid, pullUserId, message, timestamp, 0,0).then(res => {
+                    //type = 1 好友消息
+                    let sendMessage = {
+                        type: 1,
+                        pullUserId: pullUserId,
+                        pushUserId: userid,
+                        message: message,
+                        timestamp: timestamp,
+                    }
+                    broadcastOne(responseBody(0, sendMessage, 'success', 0), userid, pullUserId);
+                }).catch(err => {
+        
+                });
+                break;
             }
-            broadcastOne(responseBody(0, sendMessage, 'success', 0), userid, pullUserId);
-        }).catch(err => {
+            //添加好友 消息
+            case 1: {
+                const { friendId,timestamp } = data;
+                messagesService.insertMessage(userid, friendId, '', timestamp, 1, 0).then(res => {
+                    userService.selectUserById(userid).then(res => {
+                        //type = 1 添加好友的消息
+                        let sendMessage = {
+                            type: 2,
+                            name:res.name,
+                            pullUserId: friendId,
+                            timestamp: timestamp,
+                        };
+                        broadcastOne(responseBody(0, sendMessage, 'success', 0), userid, friendId);
+                    }).catch(err => {
 
-        })
+                    })
+                }).catch(err => {
+        
+                })
+                break;
+            }
+            //处理添加好友得请求信息
+            case 2: {
+                const { id, friendId, status } = data;
+                messagesService.updateNewFriendMessaes(id, status).then(res => {
+                    if (res.affectedRows) {
+                        //当为接受好友请求时 需添加好友
+                        if (status == '2') {
+                            
+                        } else {
+                            
+                        }
+                    } else {
+                        
+                    }
+                }).catch(err => {
+
+                })
+            }
+            case 3: {
+                
+            }
+            case 4: {
+                
+            }
+            default:
+                break;
+        }
+
     });
 
     //监听关闭连接操作
@@ -114,7 +169,6 @@ function broadcast(str, id ,type = 1) {
  * @param {Number} friendId 需要通知的好友id
  */
 function broadcastOne(str, id, friendId) {
-    // let len = server.connections.length;
     //遍历当前连接的所有用户
     server.connections.forEach(function (connection, index) {
         const { userid } = connection;
@@ -124,3 +178,8 @@ function broadcastOne(str, id, friendId) {
         }
     })
 }
+
+
+module.exports = {
+    broadcast,broadcastOne
+};

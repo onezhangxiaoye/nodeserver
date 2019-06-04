@@ -1,5 +1,5 @@
 //数据库配置
-const mysql = require('../mysql/mysql.js')()
+const mysql = require('../utils/mysql/mysql.js')()
 
 module.exports = {
     

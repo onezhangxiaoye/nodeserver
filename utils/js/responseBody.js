@@ -5,7 +5,7 @@
  * @param {String} message 返回的提示信息
  * @param {Number} code 返回的状态码
  */
-module.exports = (type, data = {}, message = '成功', code = 0) => {
+module.exports = (type, data = {}, message = 'success', code = 0) => {
     let responseData = {
         code: code,
         data: data,
